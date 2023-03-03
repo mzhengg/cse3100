@@ -118,6 +118,9 @@ int summary(THost hosts[], int m)
         I_n += (hosts[i].type == I);
         R_n += (hosts[i].type == R);
     }
+    // printf("    S        I        R\n");
+    // printf("%lf %lf %lf\n", (double)S_n/(S_n + I_n + R_n), 
+    // (double)I_n/(S_n + I_n + R_n), (double)R_n/(S_n + I_n + R_n));
     if(I_n == 0)
     {
         printf("    S        I        R\n");
@@ -130,7 +133,7 @@ int summary(THost hosts[], int m)
 // one_round (ISSUE)
 int one_round(THost *hosts, int m, node *p_arr[], int n_arr, int k, int T)
 {
-    // S -> I and I -> R
+    // convert S -> I and I -> R based on where the hosts currently are located
     for (int i = 0; i < m; i++) {
         if (hosts[i].type == S) {
             int index = hash(idx(hosts[i].x, hosts[i].y, k)) % n_arr;
@@ -142,7 +145,7 @@ int one_round(THost *hosts, int m, node *p_arr[], int n_arr, int k, int T)
         }
         
         else if (hosts[i].type == I) {
-            if (hosts[i].t == T) {
+            if (hosts[i].t == T - 1) {
                 hosts[i].type = R;
             }
 
@@ -152,34 +155,48 @@ int one_round(THost *hosts, int m, node *p_arr[], int n_arr, int k, int T)
         }
     }
 
-    // Reset all linked lists
+    // reset linked list because infected hosts may have changed so the current list is inaccurate
     for (int i = 0; i < n_arr; i++) {
         remove_all(&p_arr[i]);
     }
 
-    // Update locations for all hosts
+    // update locations for all hosts
     for (int i = 0; i < m; i++) {
         int r = rand() % 4;
 
         // 0: up, 1: right, 2: down, 3: left
         switch (r) {
             case 0:
-                hosts[i].y = (hosts[i].y + 1) % (2*k + 1) - k;
+                if (hosts[i].y < k) {
+                    hosts[i].y += 1;
+                } else {
+                    hosts[i].y = -k;
+                }
                 break;
             case 1:
-                hosts[i].x = (hosts[i].x + 1) % (2*k + 1) - k;
+                if (hosts[i].x < k) {
+                    hosts[i].x += 1;
+                } else {
+                    hosts[i].x = -k;
+                }
                 break;
             case 2:
-                hosts[i].y = (hosts[i].y - 1) % (2*k + 1) - k;
+                if (hosts[i].y > -k) {
+                    hosts[i].y -= 1;
+                } else {
+                    hosts[i].y = k;
+                }
                 break;
             case 3:
-                hosts[i].x = (hosts[i].x - 1) % (2*k + 1) - k;
+                if (hosts[i].x > -k) {
+                    hosts[i].x -= 1;
+                } else {
+                    hosts[i].x = k;
+                }
                 break;
         }
 
-        // TODO: check if host moves outside of border
-
-        // Build linked list for I hosts
+        // rebuild linked list for I hosts only
         if (hosts[i].type == I) {
             node *r = create_node(hosts[i]);
             int index = hash(idx(hosts[i].x, hosts[i].y, k)) % n_arr;
@@ -193,54 +210,54 @@ int one_round(THost *hosts, int m, node *p_arr[], int n_arr, int k, int T)
 int main(int argc, char *argv[]) // (GOOD)
 {
 
-	if(argc != 5)
-	{
-		printf("Usage: %s k m T N\n", argv[0]);
-		return 0;
-	}
+    if(argc != 5)
+    {
+        printf("Usage: %s k m T N\n", argv[0]);
+        return 0;
+    }
 
-	int k = atoi(argv[1]);
-	int m = atoi(argv[2]);
-	int T = atoi(argv[3]);
-	int N = atoi(argv[4]);
+    int k = atoi(argv[1]);
+    int m = atoi(argv[2]);
+    int T = atoi(argv[3]);
+    int N = atoi(argv[4]);
 
-	assert(k >= 0 && k <= 1000);
-	assert(m >= 1 && m <= 100000);
-	assert(T >= 1);
-	assert(N > 0 && N <= 100000);
-	srand(12345);
+    assert(k >= 0 && k <= 1000);
+    assert(m >= 1 && m <= 100000);
+    assert(T >= 1);
+    assert(N > 0 && N <= 100000);
+    srand(12345);
 
-	//initialize hosts
-	THost hosts[m];
+    //initialize hosts
+    THost hosts[m];
 
-	hosts[0].id = 0;
-	hosts[0].x = 0;
-	hosts[0].y = 0;
-	hosts[0].t = 0;
-	hosts[0].type = I;
+    hosts[0].id = 0;
+    hosts[0].x = 0;
+    hosts[0].y = 0;
+    hosts[0].t = 0;
+    hosts[0].type = I;
 
-	for(int i = 1; i < m; i ++)
-	{
-		hosts[i].id = i;
-		hosts[i].x = rand() % (2*k + 1) - k;
-		hosts[i].y = rand() % (2*k + 1) - k;
-		hosts[i].t = 0;
-		hosts[i].type = S;		
-	}
+    for(int i = 1; i < m; i ++)
+    {
+        hosts[i].id = i;
+        hosts[i].x = rand() % (2*k + 1) - k;
+        hosts[i].y = rand() % (2*k + 1) - k;
+        hosts[i].t = 0;
+        hosts[i].type = S;
+    }
 
-	//initialize linked lists
-	node *p_arr[N];
+    //initialize linked lists
+    node *p_arr[N];
 
-	for(int i = 0; i < N; i++)
-	{
-		p_arr[i] = NULL;
-	}
-	node *r = create_node(hosts[0]);
-	int index = hash(idx(hosts[0].x, hosts[0].y, k)) % N;
-	add_first(&(p_arr[index]), r);
+    for(int i = 0; i < N; i++)
+    {
+        p_arr[i] = NULL;
+    }
+    node *r = create_node(hosts[0]);
+    int index = hash(idx(hosts[0].x, hosts[0].y, k)) % N;
+    add_first(&(p_arr[index]), r);
 
-	//simulation
-	while(one_round(hosts, m, p_arr, N, k, T));
+    //simulation
+    while(one_round(hosts, m, p_arr, N, k, T));
 
-	return 0;
+    return 0;
 }
